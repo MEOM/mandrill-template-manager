@@ -29,9 +29,13 @@ Commands:
   mandrilltemplate list                       # show template list both of remote and local.
   mandrilltemplate publish SLUG               # publish template from draft.
   mandrilltemplate render SLUG [PARAMS_FILE]  # render mailbody from local template data. File should be Array. see https://mandrillapp.com/api/docs/templates.JSON.html#method=render.
-  mandrilltemplate upload ALL                 # upload all template to remote as draft.
+  mandrilltemplate report                     # generate report for all local templates
+  mandrilltemplate upload_all                 # upload all templates to remote as draft.
   mandrilltemplate upload SLUG                # upload template to remote as draft.
 
+Options:
+  [--env=<dev|qa|prod>]  # Enables environment support by adding prefixes.
+                         # Possible values: dev, qa, prod (default: prod)
 ```
 
 ## Workflow
@@ -167,6 +171,36 @@ subject: "Today's your mission"
 from_email: test@example.com
 from_name: Boss
 ```
+
+## Environment support
+
+Mandrill doesn't differentiate between different application environments such as Development, QA and Production. Support for environments can be enabled through prefixes. For instance, if you specify `--env=qa`, template with slug `example` will be stored as `qa-example`. You need to add those prefixes in your app too.
+
+*Note:* Locally, you shouldn't work with prefixed templates. `export_all` will only export production templates (without prefixes).
+
+* `--env=dev` = slug prefix `dev-`
+* `--env=qa` = slug prefix `qa-`
+* `--env=prod` = no slug prefix (default)
+
+Examples:
+
+```
+$ mandrilltemplate upload --env=qa SLUG
+```
+
+```
+$ mandrilltemplate publish --env=qa SLUG
+```
+
+## Report generation
+
+HTML report containing preview for all local templates and metadata can be generated using following command:
+
+```
+$ mandrilltemplate report
+```
+
+Result written to `report/report.html` file.
 
 ## Optional: render supports Handlebars preview.
 

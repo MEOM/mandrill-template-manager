@@ -1,0 +1,44 @@
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+        }
+        table {
+            border-spacing: 0;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 10px;
+            vertical-align: top;
+            border: 1px solid #D0D7E1;
+        }
+        th {
+            background-color: #D0D7E1;
+        }
+    </style>
+</head>
+
+<body>
+<table>
+<tr>
+  <th>ID/Slug</th>
+  <th>Name</th>
+  <th>From</th>
+  <th>Subject</th>
+  <th>Template</th>
+</tr>
+<% @local_templates.each do |template| %>
+<tr>
+  <td><%= template['slug'] %></td>
+  <td><%= template['name'] %></td>
+  <td><%= template['from'] %></td>
+  <td><%= template['subject'] %></td>
+  <td><img src="<%= template['slug'] %>.png"></td>
+  </tr>
+<% end %>
+
+</table>
+</body>
+</html>

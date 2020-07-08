@@ -50,3 +50,5 @@ Session.vim
 /.envrc
 /templates/
 /Gemfile.lock
+/report
+/.DS_Store
