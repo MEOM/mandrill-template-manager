@@ -25,6 +25,11 @@ module MandrillTemplate
       MandrillClient.templates_directory
     end
 
+    def update_slug(new_slug)
+      @slug = new_slug
+      self['slug'] = new_slug
+    end
+
     def load_data(slug)
       if Dir.exists?(File.join(templates_directory, slug))
         @avail = true

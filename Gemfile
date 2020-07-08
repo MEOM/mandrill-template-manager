@@ -6,3 +6,5 @@ gemspec
 gem 'formatador', github: 'geemus/formatador'
 gem 'unicode'
 gem 'dotenv'
+gem 'imgkit'
+gem 'wkhtmltoimage-binary'

@@ -5,17 +5,24 @@ require 'formatador'
 require 'unicode' unless ['jruby'].include?(RbConfig::CONFIG['ruby_install_name'])
 require 'yaml'
 require "mandrill_template/monkey_create_file"
+require 'imgkit'
+require 'erb'
 autoload "Handlebars", 'handlebars'
 
 class MandrillTemplateManager < Thor
   include Thor::Actions
   VERSION = "0.3.0"
+  APP_ENVS = { 'dev' => "dev-", 'qa' => "qa-", 'prod' => "" }
+  REPORT_DIR = 'report'
+  class_option :env, :enum => %w{dev qa prod}, :banner => "<dev|qa|prod>", :desc => "Enables environment support by adding prefixes.", default: "prod"
 
-  desc "export_all", "export all templates from remote to local files."
+  desc "export_all", "export all templates from remote to local files (does not include non-prod templates)."
   def export_all
     remote_templates = MandrillClient.client.templates.list
     remote_templates.each do |template|
-      export(template["slug"])
+      if !template["slug"].start_with?(APP_ENVS['dev']) and !template["slug"].start_with?(APP_ENVS['qa']) # skip non-prod templates
+        export(template["slug"])
+      end
     end
   end
 
@@ -30,6 +37,7 @@ class MandrillTemplateManager < Thor
   option :publish, type: :boolean, default: false, aliases: :p
   def upload(slug)
     template = MandrillTemplate::Local.new(slug)
+    
     if template.avail
       upload_template(template)
       publish(slug) if options[:publish]
@@ -38,7 +46,7 @@ class MandrillTemplateManager < Thor
     end
   end
   
- desc "upload ALL", "upload all template to remote as draft."
+ desc "upload_all", "upload all template to remote as draft."
   option :publish, type: :boolean, default: false, aliases: :p
   def upload_all()
     labels = Dir.glob("#{ templates_directory }/*").map {|path| path.split(File::SEPARATOR).last}
@@ -53,10 +61,12 @@ class MandrillTemplateManager < Thor
       end
     end 
   end
+
   desc "delete SLUG", "delete template from remote."
   option :delete_local, type: :boolean, default: false
   def delete(slug)
     begin
+      slug = add_slug_env_prefix(slug)
       result = MandrillClient.client.templates.delete(slug)
       puts result.to_yaml
     rescue Mandrill::UnknownTemplateError => e
@@ -67,14 +77,20 @@ class MandrillTemplateManager < Thor
 
   desc "generate SLUG", "generate new template files."
   def generate(slug)
-    new_template = MandrillTemplate::Local.new(slug)
-    puts new_template.class
-    meta, code, text = build_template_for_export(new_template)
-    save_as_local_template(meta, code, text)
+    if slug.start_with?(APP_ENVS['dev']) or slug.start_with?(APP_ENVS['qa'])
+      puts "Invalid template name. You cannot create environment templates directly. Use --env instead."
+    else
+      slug = add_slug_env_prefix(slug)
+      new_template = MandrillTemplate::Local.new(slug)
+      puts new_template.class
+      meta, code, text = build_template_for_export(new_template)
+      save_as_local_template(meta, code, text)
+    end
   end
 
   desc "publish SLUG", "publish template from draft."
   def publish(slug)
+    slug = add_slug_env_prefix(slug)
     puts MandrillClient.client.templates.publish(slug).to_yaml
   end
 
@@ -97,6 +113,60 @@ class MandrillTemplateManager < Thor
     else
       puts "Template data not found #{slug}. Please generate first."
     end
+  end
+
+  desc "report", "generate report for all local templates"
+  def report()
+    empty_directory REPORT_DIR
+    labels = Dir.glob("#{ templates_directory }/*").map {|path| path.split(File::SEPARATOR).last}
+    labels.each do |slug|
+      template = MandrillTemplate::Local.new(slug)
+      if template.avail
+        kit = IMGKit.new(template['code'], :quality => 60, width: 600)
+        file = kit.to_file(REPORT_DIR + "/#{slug}.png")
+        puts "Preview for template '#{slug}' generated."
+      else
+        puts "Template data not found for '#{slug}'."
+      end
+    end
+
+    @local_templates = collect_local_templates
+
+    #erb_str = File.read('lib/report.html.erb')
+    result = ERB.new(<<-EOS
+      <html>
+      <head><style>
+              body {font-family: Arial, Helvetica, sans-serif;}
+              table {border-spacing: 0; border-collapse: collapse; }
+              th, td { padding: 10px; vertical-align: top; border: 1px solid #D0D7E1; }
+              th { background-color: #D0D7E1; }
+      </style></head>
+      <body><table>
+      <tr>
+        <th>ID/Slug</th>
+        <th>Name</th>
+        <th>From</th>
+        <th>Subject</th>
+        <th>Template</th>
+      </tr>
+      <% @local_templates.each do |template| %>
+      <tr>
+        <td><%= template['slug'] %></td>
+        <td><%= template['name'] %></td>
+        <td><%= template['from'] %></td>
+        <td><%= template['subject'] %></td>
+        <td><img src="<%= template['slug'] %>.png"></td>
+        </tr>
+      <% end %>
+      </table></body></html>
+      EOS
+    ).result(binding)
+    
+    html_file = REPORT_DIR + '/report.html'
+    File.open(html_file, 'w') do |f|
+      f.write(result)
+    end
+    puts "Report complete."
   end
 
   desc "list [LABEL]", "show template list both of remote and local [optionally filtered by LABEL]."
@@ -219,6 +289,8 @@ class MandrillTemplateManager < Thor
   end
 
   def upload_template(t)
+    t.update_slug(add_slug_env_prefix(t.slug))
+    
     if remote_template_exists?(t.slug)
       method = :update
     else
@@ -234,6 +306,10 @@ class MandrillTemplateManager < Thor
       t['labels']
     )
     puts result.to_yaml
+  end
+
+  def add_slug_env_prefix(slug)
+    APP_ENVS[options[:env]] + slug
   end
 
   def remote_template_exists?(slug)
