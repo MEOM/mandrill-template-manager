@@ -34,8 +34,8 @@ Commands:
   mandrilltemplate upload SLUG                # upload template to remote as draft.
 
 Options:
-  [--env=<dev|qa|prod>]  # Enables environment support by adding prefixes.
-                         # Possible values: dev, qa, prod (default: prod)
+  [--env=<sandbox|staging|production>]  # Enables environment support by adding postfixes.
+                                        # Possible values: sandbox, staging, production (default: production)
 ```
 
 ## Workflow
@@ -174,22 +174,22 @@ from_name: Boss
 
 ## Environment support
 
-Mandrill doesn't differentiate between different application environments such as Development, QA and Production. Support for environments can be enabled through prefixes. For instance, if you specify `--env=qa`, template with slug `example` will be stored as `qa-example`. You need to add those prefixes in your app too.
+Mandrill doesn't differentiate between different application environments such as Sandbox, Staging and Production. Support for environments can be enabled through postfixes. For instance, if you specify `--env=staging`, template with slug `example` will be stored as `example-staging`. You need to add those postfixes in your app too.
 
-*Note:* Locally, you shouldn't work with prefixed templates. `export_all` will only export production templates (without prefixes).
+*Note:* Locally, you shouldn't work with postfixed templates. `export_all` will only export production templates (without postfixes).
 
-* `--env=dev` = slug prefix `dev-`
-* `--env=qa` = slug prefix `qa-`
-* `--env=prod` = no slug prefix (default)
+* `--env=sandbox` = slug postfix `-sandbox`
+* `--env=staging` = slug postfix `-staging`
+* `--env=production` = no slug postfix (default)
 
 Examples:
 
 ```
-$ mandrilltemplate upload --env=qa SLUG
+$ mandrilltemplate upload --env=staging SLUG
 ```
 
 ```
-$ mandrilltemplate publish --env=qa SLUG
+$ mandrilltemplate publish --env=staging SLUG
 ```
 
 ## Report generation

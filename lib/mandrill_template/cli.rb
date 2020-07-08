@@ -12,15 +12,15 @@ autoload "Handlebars", 'handlebars'
 class MandrillTemplateManager < Thor
   include Thor::Actions
   VERSION = "0.3.0"
-  APP_ENVS = { 'dev' => "dev-", 'qa' => "qa-", 'prod' => "" }
+  APP_ENVS = { 'sandbox' => "-sandbox", 'staging' => "-staging", 'production' => "" }
   REPORT_DIR = 'report'
-  class_option :env, :enum => %w{dev qa prod}, :banner => "<dev|qa|prod>", :desc => "Enables environment support by adding prefixes.", default: "prod"
+  class_option :env, :enum => %w{sandbox staging production}, :banner => "<sandbox|staging|production>", :desc => "Enables environment support by adding postfixes.", default: "production"
 
   desc "export_all", "export all templates from remote to local files (does not include non-prod templates)."
   def export_all
     remote_templates = MandrillClient.client.templates.list
     remote_templates.each do |template|
-      if !template["slug"].start_with?(APP_ENVS['dev']) and !template["slug"].start_with?(APP_ENVS['qa']) # skip non-prod templates
+      if !template["slug"].ends_with?(APP_ENVS['sandbox']) and !template["slug"].ends_with?(APP_ENVS['staging']) # skip non-production templates
         export(template["slug"])
       end
     end
@@ -66,7 +66,7 @@ class MandrillTemplateManager < Thor
   option :delete_local, type: :boolean, default: false
   def delete(slug)
     begin
-      slug = add_slug_env_prefix(slug)
+      slug = add_slug_env_postfix(slug)
       result = MandrillClient.client.templates.delete(slug)
       puts result.to_yaml
     rescue Mandrill::UnknownTemplateError => e
@@ -77,10 +77,10 @@ class MandrillTemplateManager < Thor
 
   desc "generate SLUG", "generate new template files."
   def generate(slug)
-    if slug.start_with?(APP_ENVS['dev']) or slug.start_with?(APP_ENVS['qa'])
+    if slug.ends_with?(APP_ENVS['sandbox']) or slug.ends_with?(APP_ENVS['staging'])
       puts "Invalid template name. You cannot create environment templates directly. Use --env instead."
     else
-      slug = add_slug_env_prefix(slug)
+      slug = add_slug_env_postfix(slug)
       new_template = MandrillTemplate::Local.new(slug)
       puts new_template.class
       meta, code, text = build_template_for_export(new_template)
@@ -90,7 +90,7 @@ class MandrillTemplateManager < Thor
 
   desc "publish SLUG", "publish template from draft."
   def publish(slug)
-    slug = add_slug_env_prefix(slug)
+    slug = add_slug_env_postfix(slug)
     puts MandrillClient.client.templates.publish(slug).to_yaml
   end
 
@@ -289,7 +289,7 @@ class MandrillTemplateManager < Thor
   end
 
   def upload_template(t)
-    t.update_slug(add_slug_env_prefix(t.slug))
+    t.update_slug(add_slug_env_postfix(t.slug))
     
     if remote_template_exists?(t.slug)
       method = :update
@@ -308,8 +308,8 @@ class MandrillTemplateManager < Thor
     puts result.to_yaml
   end
 
-  def add_slug_env_prefix(slug)
-    APP_ENVS[options[:env]] + slug
+  def add_slug_env_postfix(slug)
+    slug + APP_ENVS[options[:env]]
   end
 
   def remote_template_exists?(slug)
